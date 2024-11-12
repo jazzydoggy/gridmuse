@@ -13,7 +13,7 @@ import java.io.File
 import java.io.FileReader
 import java.io.FileWriter
 
-interface MediaPhotosRepository {
+interface MediaPhotosRepositoryJson {
   /** Fetches list of MarsPhoto from marsApi */
   suspend fun getMediaPhotos(): List<DevicePhoto>
   suspend fun getImageList(): List<DevicePhoto>
@@ -23,7 +23,7 @@ interface MediaPhotosRepository {
   fun clearJsonFile()
 }
 
-class LightRoomPhotosRepository(private val context: Context) : MediaPhotosRepository{
+class LightRoomPhotosRepositoryJson (private val context: Context) : MediaPhotosRepositoryJson{
   //private val sharedPreferences = context.getSharedPreferences("photo_preferences", Context.MODE_PRIVATE)
   var imageList = mutableListOf<DevicePhoto>() // 供外部調用的照片清單
   private val gson = Gson()
@@ -45,6 +45,7 @@ class LightRoomPhotosRepository(private val context: Context) : MediaPhotosRepos
 //      }
 //    }
 //  }
+
   override suspend fun getMediaPhotos(): List<DevicePhoto> = withContext(Dispatchers.IO) {
     try {
       getMediaPhotosImpl()

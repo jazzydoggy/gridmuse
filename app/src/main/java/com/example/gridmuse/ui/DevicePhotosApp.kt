@@ -7,18 +7,13 @@ import android.app.Activity
 import android.content.pm.PackageManager
 import android.os.Build
 import android.util.Log
-import android.widget.Toast
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.slideInVertically
-import androidx.compose.animation.slideOutVertically
-import androidx.compose.animation.core.TweenSpec
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material3.CenterAlignedTopAppBar
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -75,18 +70,28 @@ fun PhotosAppOpener() {
 @Composable
 fun DevicePhotosApp() {
   val scrollBehavior = TopAppBarDefaults.enterAlwaysScrollBehavior()
-  val mediaViewModel: MediaViewModel =
-    viewModel(factory = MediaViewModel.Factory)
+  val mediaViewModel: MediaViewModel = viewModel(factory = MediaViewModel.Factory)
+  var isVisibilityMode by remember { mutableStateOf(false) }
   // 顯示主畫面內容
   Scaffold (
     modifier = Modifier
       //.fillMaxSize()
       .nestedScroll(scrollBehavior.nestedScrollConnection),
-    topBar = { DeviceTopAppBar(scrollBehavior = scrollBehavior) }
+    topBar = {
+      DeviceTopAppBar(
+        scrollBehavior = scrollBehavior,
+        onMenuOptionSelected = { option ->
+          if (option == "toggleVisibility") {
+            isVisibilityMode = !isVisibilityMode
+          }
+        }
+      )
+    }
   ) {
     var isRefreshing by remember { mutableStateOf(false) }
     val state = rememberPullToRefreshState()
     val coroutineScope = rememberCoroutineScope()
+
     val onRefresh: () -> Unit = {
       isRefreshing = true
       coroutineScope.launch {
@@ -101,6 +106,7 @@ fun DevicePhotosApp() {
         }
       }
     }
+
     PullToRefreshBox(
       modifier = Modifier.padding(it),
       state = state,
@@ -114,7 +120,8 @@ fun DevicePhotosApp() {
             mediaViewModel.loadDevicePhotos()
           }
         },
-        contentPadding = it
+        contentPadding = it,
+        isVisibilityMode = isVisibilityMode
       )
     }
   }
@@ -132,35 +139,58 @@ fun PermissionDenied(Msg: String, modifier: Modifier = Modifier) {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun DeviceTopAppBar(scrollBehavior: TopAppBarScrollBehavior, modifier: Modifier = Modifier) {
-//  val heightOffset = scrollBehavior.state.heightOffset // 获取当前滚动位置
-//  val contentOffset = scrollBehavior.state.contentOffset
-//  val collapsedFraction = scrollBehavior.state.collapsedFraction
-//  val overlappedFraction = scrollBehavior.state.overlappedFraction
-//  val heightOffsetLimit = scrollBehavior.state.heightOffsetLimit
-//  println("D123_heightOffset: "+ heightOffset)
-//  println("D123_contentOffset: "+ contentOffset)
-//  println("D123_collapsedFraction: "+ collapsedFraction)
-//  println("D123_overlappedFraction: "+ overlappedFraction)
-//  println("D123_heightOffsetLimit: "+ heightOffsetLimit)
-    CenterAlignedTopAppBar(
-      modifier = modifier,
-      scrollBehavior = scrollBehavior,
-      expandedHeight = 50.dp,
-      title = {
+fun DeviceTopAppBar(
+  scrollBehavior: TopAppBarScrollBehavior,
+  modifier: Modifier = Modifier,
+  onMenuOptionSelected: (String) -> Unit
+) {
+
+  var showMenu by remember { mutableStateOf(false) }
+  CenterAlignedTopAppBar(
+    modifier = modifier,
+    scrollBehavior = scrollBehavior,
+    expandedHeight = 50.dp,
+    title = {
 //      Text(
 //        text = "Device Photos",
 //        style = MaterialTheme.typography.headlineSmall,
 //        maxLines = 1,
 //      )
-      },
-      actions = {
-        IconButton(onClick = { /* do something */ }) {
-          Icon(
-            imageVector = Icons.Filled.Menu,
-            contentDescription = "Localized description"
-          )
-        }
+    },
+    actions = {
+      IconButton(onClick = { showMenu = !showMenu }) {
+        Icon(
+          imageVector = Icons.Filled.Menu,
+          contentDescription = "Localized description"
+        )
       }
-    )
+      // DropdownMenu 顯示選單項目
+      DropdownMenu(
+        expanded = showMenu,
+        onDismissRequest = { showMenu = false }
+      ) {
+        DropdownMenuItem(
+          text = { Text("隱藏/顯示") },
+          onClick = {
+            onMenuOptionSelected("toggleVisibility")
+            showMenu = false
+          }
+        )
+        DropdownMenuItem(
+          text = { Text("選擇圖庫") },
+          onClick = {
+            // 選擇圖庫功能
+            showMenu = false
+          }
+        )
+        DropdownMenuItem(
+          text = { Text("登出") },
+          onClick = {
+            // 登出功能
+            showMenu = false
+          }
+        )
+      }
+    }
+  )
 }

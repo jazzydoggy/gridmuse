@@ -22,6 +22,7 @@ import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -62,18 +63,18 @@ import com.example.gridmuse.model.DevicePhoto
  */
 @Composable
 fun HomeScreen(
-//  mediaUiState: MediaUiState,
   viewModel: MediaViewModel,
   retryAction: () -> Unit,
   modifier: Modifier = Modifier.background(color = Color.Black),
   contentPadding: PaddingValues = PaddingValues(0.dp),
+  isVisibilityMode: Boolean
 ) {
   val mediaUiState by viewModel.mediaUiState.collectAsStateWithLifecycle() //觀察Flow變化
   val devicePhotos = viewModel.devicePhotos.collectAsStateWithLifecycle()
 
   Box(modifier = Modifier.fillMaxSize()) {
     // 顯示照片網格
-    PhotosGridScreen(devicePhotos.value, viewModel, modifier)
+    PhotosGridScreen(devicePhotos.value, viewModel, modifier, isVisibilityMode)
 
     // 如果是 Loading 狀態，顯示半透明的覆蓋層
     if (mediaUiState is MediaUiState.Loading) {
@@ -98,25 +99,30 @@ fun HomeScreen(
 fun PhotoCard(
   photo: DevicePhoto,
   viewModel: MediaViewModel,
-  modifier: Modifier = Modifier.fillMaxSize()
+  modifier: Modifier = Modifier.fillMaxSize(),
+  isVisibilityMode: Boolean
 ) {
   val context = LocalContext.current
   val vibrator = context.getSystemService(Vibrator::class.java)
   val isSelected = viewModel.selectedSort == photo.sort
   val isHighlighted = viewModel.selectedSort != null && !isSelected
   val isLocked = photo.sort == 0
+  var isHidden by remember { mutableStateOf(photo.isHidden) }
   var showMenu by remember { mutableStateOf(false) }
 
-  val imageModifier = Modifier.fillMaxSize()
+  val imageModifier = Modifier
+    .fillMaxSize()
     .then(
-      when{
+      when {
         isLocked && viewModel.selectedSort != null -> Modifier.graphicsLayer { alpha = 2f }
         isSelected -> Modifier.graphicsLayer { alpha = 1f }  // 被選中的照片半透明
         isHighlighted -> Modifier.graphicsLayer { alpha = 0.5f }  // 其他照片高亮
+        isHidden -> Modifier.graphicsLayer { alpha = 0.3f }
         else -> Modifier  // 無狀態時不應用效果
       }
     )
   val placeholderColor = remember { randomGrayColor() }
+
   Box(
     modifier = Modifier
       .pointerInput(Unit) {
@@ -128,9 +134,8 @@ fun PhotoCard(
             }
           },
           onTap = {
-            if(viewModel.selectedSort != null && !isLocked ) {
+            if(viewModel.selectedSort != null && !isLocked) {
               vibrator?.vibrate(VibrationEffect.createOneShot(35, VibrationEffect.EFFECT_TICK))
-              //viewModel.swapWithSelectedSort(photo.sort)  // 點擊時與選中的 sort 值交換
               showMenu = true
             }
           }
@@ -149,6 +154,17 @@ fun PhotoCard(
         .aspectRatio(1f)
         .padding(1.dp)
     )
+
+    if (isVisibilityMode && !isLocked) {
+      Checkbox(
+        checked = isHidden,
+        onCheckedChange = { isChecked ->
+          isHidden = isChecked
+          viewModel.updatePhotoVisibility(photo.id, isChecked)
+        },
+        modifier = Modifier.align(Alignment.TopEnd)
+      )
+    }
     // 使用選項對話框
     if(showMenu) {
       SelectPhotoCardAction(
@@ -215,9 +231,16 @@ fun PhotosGridScreen(
   photos: List<DevicePhoto>,
   viewModel: MediaViewModel,
   modifier: Modifier = Modifier,
+  isVisibilityMode: Boolean,
   contentPadding: PaddingValues = PaddingValues(top = 0.dp)
 ) {
-  val visiblePhotos = photos.filter { !it.isHidden }
+  //val visiblePhotos = photos.filter { !it.isHidden }
+  val visiblePhotos = if (!isVisibilityMode) {
+    photos.filter { !it.isHidden } // 當是顯示模式時，只顯示未隱藏的照片
+  } else {
+    photos // 如果是全部顯示模式，顯示所有照片
+  }
+
   LazyVerticalGrid(
     //columns = GridCells.Adaptive(128.dp),
     columns = GridCells.Fixed(3),
@@ -225,13 +248,13 @@ fun PhotosGridScreen(
     contentPadding = contentPadding,
   ) {
     items(items = visiblePhotos, key = { photo -> photo.id }) { photo ->
-      //println("D123_photo_hide: "+photo.isHidden)
       PhotoCard(
         photo,
         viewModel,
         modifier = modifier
           .fillMaxSize()
-          .aspectRatio(1.5f)
+          .aspectRatio(1.5f),
+        isVisibilityMode = isVisibilityMode
       )
     }
   }

@@ -1,6 +1,7 @@
 package com.example.gridmuse.ui.screens
 
 import android.app.Application
+import android.util.Log
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -117,9 +118,23 @@ class MediaViewModel(
         _devicePhotos.value = getRefreshPhotos()
         _mediaUiStateFlow.value = MediaUiState.Success(_devicePhotos.value)
       } catch (e: Exception) {
-        println("D123_insertAtSort_Error: ")
+        //println("D123_insertAtSort_Error: ")
         _mediaUiStateFlow.value = MediaUiState.Error
         e.printStackTrace() // 可選：打印錯誤訊息方便調試
+      }
+    }
+  }
+
+  fun updatePhotoVisibility(photoId: Long, isHidden: Boolean) {
+    println("D123_photoId: "+photoId+" isHidden: "+isHidden)
+    viewModelScope.launch {
+      try {
+        // 呼叫 repository 更新照片顯示狀態
+        mediaPhotosRepository.updatePhotoVisibility(photoId, isHidden)
+        _devicePhotos.value = getRefreshPhotos()
+      } catch (e: Exception) {
+        // 處理錯誤（例如顯示錯誤訊息等）
+        Log.e("MediaViewModel", "Error updating photo visibility: ${e.message}")
       }
     }
   }

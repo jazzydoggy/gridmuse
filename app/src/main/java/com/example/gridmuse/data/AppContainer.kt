@@ -11,6 +11,7 @@ import okhttp3.MediaType.Companion.toMediaType
  */
 interface AppContainer {
   val mediaPhotosRepository: MediaPhotosRepository
+  val mediaPhotosRepositoryJson: MediaPhotosRepositoryJson
   val networkPhotosRepository: NetworkPhotosRepository
 }
 
@@ -23,6 +24,11 @@ class DefaultAppContainer(context: Context) : AppContainer {
   override val mediaPhotosRepository: MediaPhotosRepository by lazy {
     LightRoomPhotosRepository(context)
   }
+
+  override val mediaPhotosRepositoryJson: MediaPhotosRepositoryJson by lazy {
+    LightRoomPhotosRepositoryJson(context)
+  }
+
   override val networkPhotosRepository: NetworkPhotosRepository by lazy {
     IGPhotosRepository(context)
   }

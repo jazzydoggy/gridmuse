@@ -1,9 +1,12 @@
 package com.example.gridmuse.model
 
 import android.net.Uri
+import androidx.room.Entity
+import androidx.room.PrimaryKey
 
+@Entity(tableName = "device_photos")
 data class DevicePhoto (
-  val id: Long,
+  @PrimaryKey val id: Long,
   val name: String,
   val path: String,
   val imgSrc: String,
