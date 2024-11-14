@@ -19,6 +19,6 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "GridMuse"
+rootProject.name = "gridmuse"
 include(":app")
  

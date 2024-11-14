@@ -11,7 +11,7 @@ import androidx.lifecycle.ViewModelProvider.AndroidViewModelFactory.Companion.AP
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
-import coil.network.HttpException
+import coil3.network.HttpException
 import com.example.gridmuse.PhotosApplication
 import com.example.gridmuse.data.MediaPhotosRepository
 import com.example.gridmuse.data.NetworkPhotosRepository
@@ -36,7 +36,6 @@ class MediaViewModel(
   // 用 MutableLiveData 來儲存照片列表
   private var _devicePhotos = MutableStateFlow<List<DevicePhoto>> ( emptyList() )
   val devicePhotos = _devicePhotos.asStateFlow()
-
   private var _networkPhotos = mutableListOf<DevicePhoto>()
 
   var selectedSort by mutableStateOf<Int?>(null)
@@ -63,8 +62,6 @@ class MediaViewModel(
       _networkPhotos = networkPhotos.toMutableList()
       // 合併兩個來源的照片列表
       val listResult = (localPhotos + _networkPhotos)//.sortedByDescending { it.sort }
-      //val listResult = mediaPhotosRepository.getMediaPhotos()
-      //val listResult = networkPhotosRepository.getNetworkPhotos()
       // 更新"被觀察data"的值
       _devicePhotos.value = listResult
       // 更新 UI 狀態為 Success
