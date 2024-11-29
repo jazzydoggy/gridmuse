@@ -71,12 +71,18 @@ fun HomeScreen(
 ) {
   val mediaUiState by viewModel.mediaUiState.collectAsStateWithLifecycle() //觀察Flow變化
   val devicePhotos = viewModel.devicePhotos.collectAsStateWithLifecycle()
+  val photoList = remember(devicePhotos.value) { devicePhotos.value }
 
   Box(modifier = Modifier.fillMaxSize()) {
-    // 顯示照片網格
-    PhotosGridScreen(devicePhotos.value, viewModel, modifier, isVisibilityMode)
+    // 版本1
+    PhotosGridScreen(
+      photos = photoList,
+      viewModel = viewModel,
+      modifier = modifier,
+      isVisibilityMode = isVisibilityMode
+    )
 
-    // 如果是 Loading 狀態，顯示半透明的覆蓋層
+    // 如果是 Loading 狀態，顯示半透明覆蓋層
     if (mediaUiState is MediaUiState.Loading) {
       Box(
         modifier = Modifier
@@ -84,13 +90,65 @@ fun HomeScreen(
           .background(Color.Black.copy(alpha = 0.5f)),
         contentAlignment = Alignment.Center
       ) {
-        // 你可以使用一個進度指示器或者自定義的圖片
         CircularProgressIndicator(color = Color.White)
       }
     }
-    // 如果是 Error 狀態，顯示錯誤畫面
+
+    // 如果是 Error 狀態，覆蓋顯示錯誤畫面
     if (mediaUiState is MediaUiState.Error) {
       ErrorScreen(retryAction, modifier = Modifier.fillMaxSize())
+    }
+    // 版本2
+//    if (mediaUiState is MediaUiState.Success) {
+//      val photos = remember(devicePhotos.value) { devicePhotos.value }
+//      PhotosGridScreen(photos, viewModel, modifier, isVisibilityMode)
+//    }
+//    when (mediaUiState) {
+//      is MediaUiState.Loading -> {
+//        Box(
+//          modifier = Modifier
+//            .fillMaxSize()
+//            .background(Color.Black.copy(alpha = 0.5f)),
+//          contentAlignment = Alignment.Center
+//        ) {
+//          // 你可以使用一個進度指示器或者自定義的圖片
+//          CircularProgressIndicator(color = Color.White)
+//        }
+//      }
+//      is MediaUiState.Error -> {
+//        ErrorScreen(retryAction, modifier = Modifier.fillMaxSize())
+//      }
+//      else -> {}
+//    }
+  }
+}
+
+@Composable
+fun PhotosGridScreen(
+  photos: List<DevicePhoto>,
+  viewModel: MediaViewModel,
+  modifier: Modifier = Modifier,
+  isVisibilityMode: Boolean,
+  contentPadding: PaddingValues = PaddingValues(top = 0.dp)
+) {
+  //val visiblePhotos = photos.filter { !it.isHidden }
+  println("D123_PhotosGridScreen triggered with photos.size = ${photos.size}")
+  val visiblePhotos = if (isVisibilityMode) photos else photos.filter { !it.isHidden }
+  LazyVerticalGrid(
+    //columns = GridCells.Adaptive(128.dp),
+    columns = GridCells.Fixed(3),
+    modifier = modifier,
+    contentPadding = contentPadding,
+  ) {
+    items(items = visiblePhotos, key = { photo -> photo.id }) { photo ->
+      PhotoCard(
+        photo,
+        viewModel,
+        modifier = modifier
+          .fillMaxSize()
+          .aspectRatio(1.5f),
+        isVisibilityMode = isVisibilityMode
+      )
     }
   }
 }
@@ -129,6 +187,8 @@ fun PhotoCard(
         detectTapGestures(
           onLongPress = {
             if(!isLocked) {
+              println("D123_longPress_id: "+ photo.id)
+              println("D123_longPress_sort: "+ photo.sort)
               vibrator?.vibrate(VibrationEffect.createOneShot(50, VibrationEffect.EFFECT_TICK))
               viewModel.setSelectedSort(photo.sort)
             }
@@ -176,6 +236,7 @@ fun PhotoCard(
         onSwapSelected = {
           vibrator?.vibrate(VibrationEffect.createOneShot(50, VibrationEffect.EFFECT_TICK))
           viewModel.swapWithSelectedSort(photo.sort)
+          println("D123_onSwapSelected: "+ photo.sort)
         },
         onInsertSelected = {
           vibrator?.vibrate(VibrationEffect.createOneShot(50, VibrationEffect.EFFECT_TICK))
@@ -223,40 +284,6 @@ fun SelectPhotoCardAction(
       },
       text = { Text("插入") }
     )
-  }
-}
-
-@Composable
-fun PhotosGridScreen(
-  photos: List<DevicePhoto>,
-  viewModel: MediaViewModel,
-  modifier: Modifier = Modifier,
-  isVisibilityMode: Boolean,
-  contentPadding: PaddingValues = PaddingValues(top = 0.dp)
-) {
-  //val visiblePhotos = photos.filter { !it.isHidden }
-  val visiblePhotos = if (!isVisibilityMode) {
-    photos.filter { !it.isHidden } // 當是顯示模式時，只顯示未隱藏的照片
-  } else {
-    photos // 如果是全部顯示模式，顯示所有照片
-  }
-
-  LazyVerticalGrid(
-    //columns = GridCells.Adaptive(128.dp),
-    columns = GridCells.Fixed(3),
-    modifier = modifier,
-    contentPadding = contentPadding,
-  ) {
-    items(items = visiblePhotos, key = { photo -> photo.id }) { photo ->
-      PhotoCard(
-        photo,
-        viewModel,
-        modifier = modifier
-          .fillMaxSize()
-          .aspectRatio(1.5f),
-        isVisibilityMode = isVisibilityMode
-      )
-    }
   }
 }
 
