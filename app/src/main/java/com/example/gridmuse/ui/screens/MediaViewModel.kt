@@ -14,6 +14,7 @@ import androidx.lifecycle.viewmodel.viewModelFactory
 import coil3.network.HttpException
 import com.example.gridmuse.PhotosApplication
 import com.example.gridmuse.data.MediaPhotosRepository
+import com.example.gridmuse.data.MediaPhotosRepositoryJson
 import com.example.gridmuse.data.NetworkPhotosRepository
 import com.example.gridmuse.model.DevicePhoto
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -30,12 +31,13 @@ sealed interface MediaUiState {
 
 class MediaViewModel(
   application: Application,
-  private val mediaPhotosRepository: MediaPhotosRepository,
+  private val mediaPhotosRepository: MediaPhotosRepositoryJson,
   private val networkPhotosRepository: NetworkPhotosRepository
 ) : AndroidViewModel(application) {
   // 用 MutableLiveData 來儲存照片列表
   private var _devicePhotos = MutableStateFlow<List<DevicePhoto>> ( emptyList() )
   val devicePhotos = _devicePhotos.asStateFlow()
+
   private var _networkPhotos = mutableListOf<DevicePhoto>()
 
   var selectedSort by mutableStateOf<Int?>(null)
@@ -109,8 +111,8 @@ class MediaViewModel(
 
   fun insertAtSort(selected: Int, target: Int) {
     viewModelScope.launch {
+      _mediaUiStateFlow.value = MediaUiState.Loading
       try {
-        _mediaUiStateFlow.value = MediaUiState.Loading
         mediaPhotosRepository.insertPhotoAtSort(selected, target)
         _devicePhotos.value = getRefreshPhotos()
         _mediaUiStateFlow.value = MediaUiState.Success(_devicePhotos.value)
@@ -126,7 +128,6 @@ class MediaViewModel(
     println("D123_photoId: "+photoId+" isHidden: "+isHidden)
     viewModelScope.launch {
       try {
-        // 呼叫 repository 更新照片顯示狀態
         mediaPhotosRepository.updatePhotoVisibility(photoId, isHidden)
         _devicePhotos.value = getRefreshPhotos()
       } catch (e: Exception) {
@@ -152,7 +153,7 @@ class MediaViewModel(
     val Factory: ViewModelProvider.Factory = viewModelFactory {
       initializer {
         val application = (this[APPLICATION_KEY] as PhotosApplication)
-        val mediaPhotosRepository = application.container.mediaPhotosRepository
+        val mediaPhotosRepository = application.container.mediaPhotosRepositoryJson
         val networkPhotosRepository = application.container.networkPhotosRepository
         MediaViewModel(
           application,

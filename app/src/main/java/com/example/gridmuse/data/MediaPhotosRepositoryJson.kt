@@ -47,48 +47,6 @@ class LightRoomPhotosRepositoryJson (private val context: Context) : MediaPhotos
 //  }
 
   override suspend fun getMediaPhotos(): List<DevicePhoto> = withContext(Dispatchers.IO) {
-    try {
-      getMediaPhotosImpl()
-    }catch (e: Exception) {
-      throw e
-    }
-  }
-
-  override suspend fun insertPhotoAtSort(selected: Int, target: Int): Unit = withContext(Dispatchers.IO) {
-      try {
-        insertPhotoAtSortImpl(selected, target)
-      }catch (e: Exception) {
-        throw e
-      }
-  }
-
-  override suspend fun swapPhotos(selected: Int, target: Int): Unit = withContext(Dispatchers.IO) {
-      try {
-        swapPhotosImpl(selected, target)
-      }catch (e: Exception) {
-        throw e
-      }
-  }
-
-  override suspend fun updatePhotoVisibility(photoID: Long, isHidden: Boolean): Unit = withContext(Dispatchers.IO) {
-      try {
-        println("D123_updatePhotoVisibility: "+photoID+"  "+isHidden)
-        updatePhotoVisibilityImpl(photoID, isHidden)
-      }catch (e: Exception) {
-        throw e
-      }
-  }
-
-  override suspend fun getImageList(): List<DevicePhoto> = withContext(Dispatchers.IO) {
-      try {
-        getImageListImpl()
-      }catch (e: Exception) {
-        throw e
-      }
-  }
-
-  /*實作 getMediaPhotos 功能*/
-  private fun getMediaPhotosImpl(): List<DevicePhoto> {
     val collection = MediaStore.Images.Media.EXTERNAL_CONTENT_URI
     val projection = arrayOf(
       MediaStore.Images.Media._ID,
@@ -133,12 +91,77 @@ class LightRoomPhotosRepositoryJson (private val context: Context) : MediaPhotos
     }
     synchronizeJsonWithImageList() //只對jsonFile做操作
     imageList = makeJsonSortContinuous().toMutableList() //排序重整並同步imageList
-    return imageList.sortedByDescending { it.sort }
+    return@withContext imageList.sortedByDescending { it.sort }
   }
 
-  /*返回imageList給外部使用*/
-  private fun getImageListImpl(): List<DevicePhoto> {
-    return imageList.sortedByDescending { it.sort }
+  override suspend fun getImageList(): List<DevicePhoto> = withContext(Dispatchers.IO) {
+    return@withContext imageList.sortedByDescending { it.sort }
+//    try {
+//      getImageListImpl()
+//    }catch (e: Exception) {
+//      throw e
+//    }
+  }
+
+  override suspend fun swapPhotos(selected: Int, target: Int): Unit = withContext(Dispatchers.IO) {
+    // 讀取 JSON 中的現有照片
+    val existingPhotos = readDevicePhotosFromJson().toMutableList()
+    // 尋找JSON file對應photo
+    val photoA = existingPhotos.find { it.sort == selected }
+    val photoB = existingPhotos.find { it.sort == target }
+    // 交換 JSON file sort 值
+    if (photoA != null && photoB != null) {
+      photoA.sort = target
+      photoB.sort = selected
+      // 寫入更新後的照片列表到 JSON 文件
+      writeDevicePhotosToJson(existingPhotos)
+      // 更新 imageList 中的對應項目
+      val imageListPhotoA = imageList.find { it.id == photoA.id }
+      val imageListPhotoB = imageList.find { it.id == photoB.id }
+      imageListPhotoA?.sort = target
+      imageListPhotoB?.sort = selected
+    }
+  }
+
+  override suspend fun insertPhotoAtSort(selected: Int, target: Int): Unit = withContext(Dispatchers.IO) {
+    val existingPhotos = readDevicePhotosFromJson().toMutableList()
+    val selectedPhoto = existingPhotos.find { it.sort == selected } ?: return@withContext
+    existingPhotos.forEach { photo ->
+      when {
+        // 如果原始照片排序高於目標排序且低於等於選定排序值，則將排序值 -1
+        //[1,2,3,4,5,6] sel=5 tar=2 -> [1,5,2,3,4,6]
+        photo.sort in (target until selected) -> {
+          photo.sort += 1
+        }
+        // 如果原始照片排序低於目標排序且高於等於選定排序值，則將排序值 +1
+        //[1,2,3,4,5,6] sel=2 tar=5 -> [1,3,4,5,2,6]
+        photo.sort in (selected + 1)..target -> {
+          photo.sort -= 1
+        }
+      }
+    }
+    selectedPhoto.sort = target
+    existingPhotos.sortBy { it.sort }
+    writeDevicePhotosToJson(existingPhotos)
+    updateImageListSortBy(existingPhotos) // 同步更新 imageList
+  }
+
+  override suspend fun updatePhotoVisibility(photoId: Long, isHidden: Boolean): Unit = withContext(Dispatchers.IO) {
+    val existingPhotos = readDevicePhotosFromJson().toMutableList()
+    // 找到要更新顯示狀態的照片
+    val photoToUpdate = existingPhotos.find { it.id == photoId }
+    println("D123_photoToUpdate: "+photoToUpdate)
+    if (photoToUpdate != null) {
+      // 更新照片的 isHidden 屬性
+      photoToUpdate.isHidden = isHidden
+      println("D123_photoToUpdate: "+photoToUpdate.isHidden)
+      // 寫回更新後的資料到 JSON 文件
+      writeDevicePhotosToJson(existingPhotos)
+      // 也需要更新 imageList 中對應照片的狀態
+      val imageListPhoto = imageList.find { it.id == photoId }
+      imageListPhoto?.isHidden = isHidden
+      println("D123_imageListPhoto: "+imageListPhoto)
+    }
   }
 
   /*插入一筆照片至現有DB*/
@@ -229,66 +252,21 @@ class LightRoomPhotosRepositoryJson (private val context: Context) : MediaPhotos
     }
   }
 
+  /*返回imageList給外部使用*/
+  private fun getImageListImpl(): List<DevicePhoto> {
+    return imageList.sortedByDescending { it.sort }
+  }
+
   /*實作照片排序值交換*/
-  private fun swapPhotosImpl(selected: Int,target: Int)
-  {
-    // 讀取 JSON 中的現有照片
-    val existingPhotos = readDevicePhotosFromJson().toMutableList()
-    // 尋找JSON file對應photo
-    val photoA = existingPhotos.find { it.sort == selected }
-    val photoB = existingPhotos.find { it.sort == target }
-    // 交換 JSON file sort 值
-    if (photoA != null && photoB != null) {
-      photoA.sort = target
-      photoB.sort = selected
-      // 寫入更新後的照片列表到 JSON 文件
-      writeDevicePhotosToJson(existingPhotos)
-      // 更新 imageList 中的對應項目
-      val imageListPhotoA = imageList.find { it.id == photoA.id }
-      val imageListPhotoB = imageList.find { it.id == photoB.id }
-      imageListPhotoA?.sort = target
-      imageListPhotoB?.sort = selected
-    }
+  private fun swapPhotosImpl(selected: Int,target: Int) {
+
   }
 
   private fun insertPhotoAtSortImpl(selected: Int,target: Int){
-    val existingPhotos = readDevicePhotosFromJson().toMutableList()
-    val selectedPhoto = existingPhotos.find { it.sort == selected } ?: return
-    existingPhotos.forEach { photo ->
-      when {
-        // 如果原始照片排序高於目標排序且低於等於選定排序值，則將排序值 -1
-        //[1,2,3,4,5,6] sel=5 tar=2 -> [1,5,2,3,4,6]
-        photo.sort in (target until selected) -> {
-          photo.sort += 1
-        }
-        // 如果原始照片排序低於目標排序且高於等於選定排序值，則將排序值 +1
-        //[1,2,3,4,5,6] sel=2 tar=5 -> [1,3,4,5,2,6]
-        photo.sort in (selected + 1)..target -> {
-          photo.sort -= 1
-        }
-      }
-    }
-    selectedPhoto.sort = target
-    existingPhotos.sortBy { it.sort }
-    writeDevicePhotosToJson(existingPhotos)
-    updateImageListSortBy(existingPhotos) // 同步更新 imageList
+
   }
 
   private fun updatePhotoVisibilityImpl(photoId: Long, isHidden: Boolean) {
-    val existingPhotos = readDevicePhotosFromJson().toMutableList()
-    // 找到要更新顯示狀態的照片
-    val photoToUpdate = existingPhotos.find { it.id == photoId }
-    println("D123_photoToUpdate: "+photoToUpdate)
-    if (photoToUpdate != null) {
-      // 更新照片的 isHidden 屬性
-      photoToUpdate.isHidden = isHidden
-      println("D123_photoToUpdate: "+photoToUpdate.isHidden)
-      // 寫回更新後的資料到 JSON 文件
-      writeDevicePhotosToJson(existingPhotos)
-      // 也需要更新 imageList 中對應照片的狀態
-      val imageListPhoto = imageList.find { it.id == photoId }
-      imageListPhoto?.isHidden = isHidden
-      println("D123_imageListPhoto: "+imageListPhoto)
-    }
+
   }
 }
