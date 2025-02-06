@@ -184,7 +184,7 @@ fun PhotoCard(
       contentDescription = stringResource(R.string.grid_muse),
       contentScale = ContentScale.Crop,
       modifier = imageModifier
-        .aspectRatio(1f)
+        .aspectRatio(0.7f)
         .padding(1.dp)
     )
 

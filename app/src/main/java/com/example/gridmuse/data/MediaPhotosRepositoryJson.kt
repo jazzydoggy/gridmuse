@@ -27,6 +27,7 @@ class LightRoomPhotosRepositoryJson (private val context: Context) : MediaPhotos
   //private val sharedPreferences = context.getSharedPreferences("photo_preferences", Context.MODE_PRIVATE)
   var imageList = mutableListOf<DevicePhoto>() // 供外部調用的照片清單
   private val gson = Gson()
+  private val jsonFileBackup = File(context.filesDir, "photo_data_backup.json") // 紀錄照片排序之DB
   private val jsonFile = File(context.filesDir, "photo_data.json") // 紀錄照片排序之DB
   private val db = Room.databaseBuilder(
     context.applicationContext,
@@ -105,7 +106,7 @@ class LightRoomPhotosRepositoryJson (private val context: Context) : MediaPhotos
 
   override suspend fun swapPhotos(selected: Int, target: Int): Unit = withContext(Dispatchers.IO) {
     // 讀取 JSON 中的現有照片
-    val existingPhotos = readDevicePhotosFromJson().toMutableList()
+    val existingPhotos = readDevicePhotosFromJson(jsonFile).toMutableList()
     // 尋找JSON file對應photo
     val photoA = existingPhotos.find { it.sort == selected }
     val photoB = existingPhotos.find { it.sort == target }
@@ -124,7 +125,7 @@ class LightRoomPhotosRepositoryJson (private val context: Context) : MediaPhotos
   }
 
   override suspend fun insertPhotoAtSort(selected: Int, target: Int): Unit = withContext(Dispatchers.IO) {
-    val existingPhotos = readDevicePhotosFromJson().toMutableList()
+    val existingPhotos = readDevicePhotosFromJson(jsonFile).toMutableList()
     val selectedPhoto = existingPhotos.find { it.sort == selected } ?: return@withContext
     existingPhotos.forEach { photo ->
       when {
@@ -147,7 +148,7 @@ class LightRoomPhotosRepositoryJson (private val context: Context) : MediaPhotos
   }
 
   override suspend fun updatePhotoVisibility(photoId: Long, isHidden: Boolean): Unit = withContext(Dispatchers.IO) {
-    val existingPhotos = readDevicePhotosFromJson().toMutableList()
+    val existingPhotos = readDevicePhotosFromJson(jsonFile).toMutableList()
     // 找到要更新顯示狀態的照片
     val photoToUpdate = existingPhotos.find { it.id == photoId }
     println("D123_photoToUpdate: "+photoToUpdate)
@@ -167,7 +168,7 @@ class LightRoomPhotosRepositoryJson (private val context: Context) : MediaPhotos
   /*插入一筆照片至現有DB*/
   private fun insertDevicePhotoToJson(newPhoto: DevicePhoto) {
     // 讀取 JSON 現有資料
-    val existingPhotos = readDevicePhotosFromJson().toMutableList()
+    val existingPhotos = readDevicePhotosFromJson(jsonFile).toMutableList()
     val maxSortValue = existingPhotos.maxOfOrNull { it.sort } ?: 0
     // 檢查 id 是否唯一
     val existingPhoto = existingPhotos.find { it.id == newPhoto.id }
@@ -188,7 +189,7 @@ class LightRoomPhotosRepositoryJson (private val context: Context) : MediaPhotos
   }
 
   /*讀取現有DB資料*/
-  private fun readDevicePhotosFromJson(): List<DevicePhoto> {
+  private fun readDevicePhotosFromJson(jsonFile: File): List<DevicePhoto> {
     return if (jsonFile.exists()) {
       FileReader(jsonFile).use { reader ->
         val devicePhotosArray = gson.fromJson(reader, Array<DevicePhoto>::class.java)
@@ -219,7 +220,7 @@ class LightRoomPhotosRepositoryJson (private val context: Context) : MediaPhotos
   /*同步DB資料為裝置讀入資料*/
   private fun synchronizeJsonWithImageList(): List<DevicePhoto> {
     // 讀取 JSON 文件中的現有照片
-    val existingPhotos = readDevicePhotosFromJson().toMutableList()
+    val existingPhotos = readDevicePhotosFromJson(jsonFile).toMutableList()
     // 只保留 imageList 中存在的 id
     val updatedPhotos = existingPhotos.filter { existingPhoto ->
       imageList.any { it.id == existingPhoto.id }
@@ -231,7 +232,7 @@ class LightRoomPhotosRepositoryJson (private val context: Context) : MediaPhotos
 
   /*更新照片Sort值為連續整數*/
   private fun makeJsonSortContinuous():List<DevicePhoto> {
-    val existingPhotos = readDevicePhotosFromJson().toMutableList()
+    val existingPhotos = readDevicePhotosFromJson(jsonFile).toMutableList()
     //var hiddenNum = 98///
     //existingPhotos[hiddenNum-1].isHidden = true///
     existingPhotos.sortBy { it.sort }
@@ -250,6 +251,18 @@ class LightRoomPhotosRepositoryJson (private val context: Context) : MediaPhotos
         imagePhoto.sort = updatedPhoto.sort
       }
     }
+  }
+
+  private fun syncBackupJson() {
+    val jsonPhotoBackup = readDevicePhotosFromJson(jsonFileBackup).toMutableList()
+    val jsonPhoto = readDevicePhotosFromJson(jsonFile).toMutableList()
+    jsonPhoto.forEach { photo ->
+      jsonPhotoBackup.find { it.name == photo.name }?.let { bPhoto ->
+        photo.sort = bPhoto.sort
+        photo.isHidden = bPhoto.isHidden
+      }
+    }
+    writeDevicePhotosToJson(jsonPhoto)
   }
 
   /*返回imageList給外部使用*/

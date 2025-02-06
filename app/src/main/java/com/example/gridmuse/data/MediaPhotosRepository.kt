@@ -35,6 +35,7 @@ class LightRoomPhotosRepository(private val context: Context) : MediaPhotosRepos
 
   /*實作 getMediaPhotos 功能*/
   override suspend fun getMediaPhotos(): List<DevicePhoto> = withContext(Dispatchers.IO) {
+    //syncJsonToDB();///
     val collection = MediaStore.Images.Media.EXTERNAL_CONTENT_URI
     val projection = arrayOf(
       MediaStore.Images.Media._ID,
@@ -157,6 +158,22 @@ class LightRoomPhotosRepository(private val context: Context) : MediaPhotosRepos
 //    FileWriter(jsonFile).use { writer ->
 //      writer.write(jsonString)
 //    }
+  }
+
+  private fun readDevicePhotosFromJson(): List<DevicePhoto> {
+    return if (jsonFile.exists()) {
+      FileReader(jsonFile).use { reader ->
+        val devicePhotosArray = gson.fromJson(reader, Array<DevicePhoto>::class.java)
+        devicePhotosArray?.toList() ?: emptyList()
+      }
+    } else {
+      emptyList()
+    }
+  }
+
+  private fun syncJsonToDB() {
+    val jsonPhotos = readDevicePhotosFromJson().toMutableList()
+    jsonPhotos.forEach { jPhoto -> devicePhotoDao.updatePhoto(jPhoto)}
   }
 
   /*清除DB資料*/
