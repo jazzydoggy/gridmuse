@@ -71,12 +71,11 @@ fun HomeScreen(
 ) {
   val mediaUiState by viewModel.mediaUiState.collectAsStateWithLifecycle() //觀察Flow變化
   val devicePhotos = viewModel.devicePhotos.collectAsStateWithLifecycle()
-  val photoList = remember(devicePhotos.value) { devicePhotos.value }
 
   Box(modifier = Modifier.fillMaxSize()) {
-    // 版本1
+    // 顯示照片網格
     PhotosGridScreen(
-      photos = photoList,
+      photos = devicePhotos.value,
       viewModel = viewModel,
       modifier = modifier,
       isVisibilityMode = isVisibilityMode
@@ -93,33 +92,10 @@ fun HomeScreen(
         CircularProgressIndicator(color = Color.White)
       }
     }
-
-    // 如果是 Error 狀態，覆蓋顯示錯誤畫面
+    // 如果是 Error 狀態，顯示錯誤畫面
     if (mediaUiState is MediaUiState.Error) {
       ErrorScreen(retryAction, modifier = Modifier.fillMaxSize())
     }
-    // 版本2
-//    if (mediaUiState is MediaUiState.Success) {
-//      val photos = remember(devicePhotos.value) { devicePhotos.value }
-//      PhotosGridScreen(photos, viewModel, modifier, isVisibilityMode)
-//    }
-//    when (mediaUiState) {
-//      is MediaUiState.Loading -> {
-//        Box(
-//          modifier = Modifier
-//            .fillMaxSize()
-//            .background(Color.Black.copy(alpha = 0.5f)),
-//          contentAlignment = Alignment.Center
-//        ) {
-//          // 你可以使用一個進度指示器或者自定義的圖片
-//          CircularProgressIndicator(color = Color.White)
-//        }
-//      }
-//      is MediaUiState.Error -> {
-//        ErrorScreen(retryAction, modifier = Modifier.fillMaxSize())
-//      }
-//      else -> {}
-//    }
   }
 }
 
@@ -132,7 +108,6 @@ fun PhotosGridScreen(
   contentPadding: PaddingValues = PaddingValues(top = 0.dp)
 ) {
   //val visiblePhotos = photos.filter { !it.isHidden }
-  println("D123_PhotosGridScreen triggered with photos.size = ${photos.size}")
   val visiblePhotos = if (isVisibilityMode) photos else photos.filter { !it.isHidden }
   LazyVerticalGrid(
     //columns = GridCells.Adaptive(128.dp),
@@ -187,8 +162,6 @@ fun PhotoCard(
         detectTapGestures(
           onLongPress = {
             if(!isLocked) {
-              println("D123_longPress_id: "+ photo.id)
-              println("D123_longPress_sort: "+ photo.sort)
               vibrator?.vibrate(VibrationEffect.createOneShot(50, VibrationEffect.EFFECT_TICK))
               viewModel.setSelectedSort(photo.sort)
             }
@@ -211,7 +184,7 @@ fun PhotoCard(
       contentDescription = stringResource(R.string.grid_muse),
       contentScale = ContentScale.Crop,
       modifier = imageModifier
-        .aspectRatio(1f)
+        .aspectRatio(0.7f)
         .padding(1.dp)
     )
 
@@ -236,7 +209,6 @@ fun PhotoCard(
         onSwapSelected = {
           vibrator?.vibrate(VibrationEffect.createOneShot(50, VibrationEffect.EFFECT_TICK))
           viewModel.swapWithSelectedSort(photo.sort)
-          println("D123_onSwapSelected: "+ photo.sort)
         },
         onInsertSelected = {
           vibrator?.vibrate(VibrationEffect.createOneShot(50, VibrationEffect.EFFECT_TICK))

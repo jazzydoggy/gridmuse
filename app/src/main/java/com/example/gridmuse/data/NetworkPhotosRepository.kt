@@ -38,7 +38,7 @@ class IGPhotosRepository(private val context: Context) : NetworkPhotosRepository
   private val apiVersion = "v21.0"
   private val userID = "8543930829061574"
   private val fields = "id,timestamp,permalink,media_type,media_url,thumbnail_url"
-  private val accessKey = "IGQWRPV0pCdlZAvWU5lWHptRi1nd3VfWXJkdTFUenBvdHA1X2xueEdnSEdrVnVGZA1BnbUxXaDNrS2VUYmRoSTdZAU2VibXVmb0RJWnFMbnNQVTdPSHphWkp0c0YzbjdRYks0TkxlUTNlWU5RMG1aX3VvX0xOb1lwQ1UZD"
+  private val accessKey = "IGQWRQZA2NOSHpiLWlUZAHE5M0QtZA3RTVGVINV9oRzVNVm9ra0RKVXVnVDlkOHZAyWTRXM0VzUUdxNldYQy1NZAmt0dW1NQlJ0MDh3M3lxU1BLdnR5S24xZAUVsdF83dGpnSFBQVG1WN1NyNENLcVFmUWJaZA01rR2Y0WjAZD"
   private val gson = Gson()
   private val jsonFile = File(context.filesDir, "network_photo_data.json") // 紀錄照片排序之DB
 

@@ -14,6 +14,7 @@ import androidx.lifecycle.viewmodel.viewModelFactory
 import coil3.network.HttpException
 import com.example.gridmuse.PhotosApplication
 import com.example.gridmuse.data.MediaPhotosRepository
+import com.example.gridmuse.data.MediaPhotosRepositoryJson
 import com.example.gridmuse.data.NetworkPhotosRepository
 import com.example.gridmuse.model.DevicePhoto
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -30,7 +31,7 @@ sealed interface MediaUiState {
 
 class MediaViewModel(
   application: Application,
-  private val mediaPhotosRepository: MediaPhotosRepository,
+  private val mediaPhotosRepository: MediaPhotosRepositoryJson,
   private val networkPhotosRepository: NetworkPhotosRepository
 ) : AndroidViewModel(application) {
   // 用 MutableLiveData 來儲存照片列表
@@ -168,7 +169,7 @@ class MediaViewModel(
     val Factory: ViewModelProvider.Factory = viewModelFactory {
       initializer {
         val application = (this[APPLICATION_KEY] as PhotosApplication)
-        val mediaPhotosRepository = application.container.mediaPhotosRepository
+        val mediaPhotosRepository = application.container.mediaPhotosRepositoryJson
         val networkPhotosRepository = application.container.networkPhotosRepository
         MediaViewModel(
           application,

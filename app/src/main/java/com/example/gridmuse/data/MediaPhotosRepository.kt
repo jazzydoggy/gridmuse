@@ -26,7 +26,7 @@ interface MediaPhotosRepository {
 class LightRoomPhotosRepository(private val context: Context) : MediaPhotosRepository{
   var imageList = mutableListOf<DevicePhoto>() // 供外部調用的照片清單
   private val gson = Gson()
-  //private val jsonFile = File(context.filesDir, "photo_data.json") // 紀錄照片排序之DB
+  private val jsonFile = File(context.filesDir, "photo_data.json") // 紀錄照片排序之DB
   private val db = Room.databaseBuilder(
     context.applicationContext,
     AppDatabase::class.java, "app_database"
@@ -35,6 +35,7 @@ class LightRoomPhotosRepository(private val context: Context) : MediaPhotosRepos
 
   /*實作 getMediaPhotos 功能*/
   override suspend fun getMediaPhotos(): List<DevicePhoto> = withContext(Dispatchers.IO) {
+    //syncJsonToDB();///
     val collection = MediaStore.Images.Media.EXTERNAL_CONTENT_URI
     val projection = arrayOf(
       MediaStore.Images.Media._ID,
@@ -90,7 +91,6 @@ class LightRoomPhotosRepository(private val context: Context) : MediaPhotosRepos
 
   /*照片排序值交換*/
   override suspend fun swapPhotos(selected: Int,target: Int) = withContext(Dispatchers.IO) {
-    println("D123_rep_sel: "+selected+" "+"tar:"+target)
     val photoA = devicePhotoDao.getAllPhotos().find { it.sort == selected }
     val photoB = devicePhotoDao.getAllPhotos().find { it.sort == target }
     if (photoA != null && photoB != null) {
@@ -98,19 +98,12 @@ class LightRoomPhotosRepository(private val context: Context) : MediaPhotosRepos
       photoB.sort = selected
       devicePhotoDao.updatePhoto(photoA)
       devicePhotoDao.updatePhoto(photoB)
-    }
-//    val existingPhotos = readDevicePhotosFromJson().toMutableList()
-//    val photoA = existingPhotos.find { it.sort == selected }
-//    val photoB = existingPhotos.find { it.sort == target }
-//    if (photoA != null && photoB != null) {
-//      photoA.sort = target
-//      photoB.sort = selected
-//      writeDevicePhotosToJson(existingPhotos)
+//      // 更新 imageList 中的對應項目
 //      val imageListPhotoA = imageList.find { it.id == photoA.id }
 //      val imageListPhotoB = imageList.find { it.id == photoB.id }
 //      imageListPhotoA?.sort = target
 //      imageListPhotoB?.sort = selected
-//    }
+    }
   }
 
   /*照片插入排序*/
@@ -118,15 +111,15 @@ class LightRoomPhotosRepository(private val context: Context) : MediaPhotosRepos
     val existingPhotos = devicePhotoDao.getAllPhotos().toMutableList()
     val selectedPhoto = existingPhotos.find { it.sort == selected } ?: return@withContext
     existingPhotos.forEach { photo ->
-      when{
+      when {
         photo.sort in (target until selected) -> photo.sort += 1
         photo.sort in (selected + 1)..target -> photo.sort -= 1
       }
     }
     selectedPhoto.sort = target
-    existingPhotos.sortBy{it.sort}
+    existingPhotos.sortBy { it.sort }
     existingPhotos.forEach { devicePhotoDao.updatePhoto(it) }
-    updateImageListSortBy(existingPhotos)
+    updateImageListSortBy(existingPhotos) // 同步更新 imageList
   }
 
   /*更改照片是否隱藏*/
@@ -143,29 +136,44 @@ class LightRoomPhotosRepository(private val context: Context) : MediaPhotosRepos
   private fun insertDevicePhotoToDatabase(newPhoto: DevicePhoto) {
     val existingPhoto = devicePhotoDao.getPhotoById(newPhoto.id)
     val maxSortValue = devicePhotoDao.getAllPhotos().maxOfOrNull { it.sort } ?: 0
-    if(existingPhoto != null)
-    {
-      if(existingPhoto.sort < 1) {
+    if (existingPhoto != null) {
+      if (existingPhoto.sort < 1) {
         existingPhoto.sort = maxSortValue + 1
         devicePhotoDao.updatePhoto(existingPhoto)
       }
     } else {
-        newPhoto.sort = maxSortValue + 1
-        devicePhotoDao.insertPhoto(newPhoto)
+      newPhoto.sort = maxSortValue + 1
+      devicePhotoDao.insertPhoto(newPhoto)
     }
   }
 
   /*讀取現有DB資料*/
-  private fun readDevicePhotosFromJson(): List<DevicePhoto> {
+  private fun readDevicePhotosFromDatabase(): List<DevicePhoto> {
     return devicePhotoDao.getAllPhotos()
   }
 
   /*整筆覆蓋現有DB資料*/
-  private fun writeDevicePhotosToJson(photos: List<DevicePhoto>) {
+  private fun writeDevicePhotosToDatabase(photos: List<DevicePhoto>) {
 //    val jsonString = gson.toJson(photos)
 //    FileWriter(jsonFile).use { writer ->
 //      writer.write(jsonString)
 //    }
+  }
+
+  private fun readDevicePhotosFromJson(): List<DevicePhoto> {
+    return if (jsonFile.exists()) {
+      FileReader(jsonFile).use { reader ->
+        val devicePhotosArray = gson.fromJson(reader, Array<DevicePhoto>::class.java)
+        devicePhotosArray?.toList() ?: emptyList()
+      }
+    } else {
+      emptyList()
+    }
+  }
+
+  private fun syncJsonToDB() {
+    val jsonPhotos = readDevicePhotosFromJson().toMutableList()
+    jsonPhotos.forEach { jPhoto -> devicePhotoDao.updatePhoto(jPhoto)}
   }
 
   /*清除DB資料*/
