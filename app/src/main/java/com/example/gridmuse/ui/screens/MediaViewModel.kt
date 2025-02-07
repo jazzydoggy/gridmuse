@@ -48,8 +48,26 @@ class MediaViewModel(
   //val mediaUiState: StateFlow<MediaUiState> get() = _mediaUiStateFlow
 
   init {
-    viewModelScope.launch{
-      loadDevicePhotos()
+    refreshDevicePhotos()
+  }
+
+  fun refreshDevicePhotos() {
+    viewModelScope.launch {
+      _mediaUiStateFlow.value = MediaUiState.Loading
+      try {
+        val localPhotos = mediaPhotosRepository.getMediaPhotos()
+        val networkPhotos = networkPhotosRepository.getNetworkPhotos()
+        _networkPhotos = networkPhotos.toMutableList()
+        val newPhotos  = localPhotos + _networkPhotos
+
+        if (newPhotos != _devicePhotos.value) {
+          _devicePhotos.value = newPhotos
+        }
+        _mediaUiStateFlow.value = MediaUiState.Success(newPhotos)
+      } catch (e: Exception) {
+        _mediaUiStateFlow.value = MediaUiState.Error
+        Log.e("MediaViewModel", "Error loading photos: ${e.message}")
+      }
     }
   }
 
@@ -100,8 +118,7 @@ class MediaViewModel(
       _mediaUiStateFlow.value = MediaUiState.Loading
       try {
         mediaPhotosRepository.swapPhotos(sortA, sortB)
-        _devicePhotos.value = getRefreshPhotos()
-        _mediaUiStateFlow.value = MediaUiState.Success(_devicePhotos.value)
+        refreshDevicePhotos()
       } catch (e: Exception) {
         _mediaUiStateFlow.value = MediaUiState.Error
         e.printStackTrace() // 可選：打印錯誤訊息方便調試
@@ -114,8 +131,7 @@ class MediaViewModel(
       _mediaUiStateFlow.value = MediaUiState.Loading
       try {
         mediaPhotosRepository.insertPhotoAtSort(selected, target)
-        _devicePhotos.value = getRefreshPhotos()
-        _mediaUiStateFlow.value = MediaUiState.Success(_devicePhotos.value)
+        refreshDevicePhotos()
       } catch (e: Exception) {
         //println("D123_insertAtSort_Error: ")
         _mediaUiStateFlow.value = MediaUiState.Error
@@ -125,11 +141,11 @@ class MediaViewModel(
   }
 
   fun updatePhotoVisibility(photoId: Long, isHidden: Boolean) {
-    println("D123_photoId: "+photoId+" isHidden: "+isHidden)
+//    println("D123_photoId: "+photoId+" isHidden: "+isHidden)
     viewModelScope.launch {
       try {
         mediaPhotosRepository.updatePhotoVisibility(photoId, isHidden)
-        _devicePhotos.value = getRefreshPhotos()
+        refreshDevicePhotos()
       } catch (e: Exception) {
         // 處理錯誤（例如顯示錯誤訊息等）
         Log.e("MediaViewModel", "Error updating photo visibility: ${e.message}")
